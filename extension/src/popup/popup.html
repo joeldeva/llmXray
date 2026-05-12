@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TrustGuard</title>
+<link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+<div class="popup-container">
+  <header class="popup-header">
+    <div class="popup-logo">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span>TrustGuard</span>
+    </div>
+    <div id="status-badge" class="status-badge status-active">Active</div>
+  </header>
+
+  <div class="popup-body">
+    <div class="info-row">
+      <span class="info-label">Monitoring</span>
+      <span class="info-value" id="hostname">chatgpt.com</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">User</span>
+      <span class="info-value" id="user-id">loading...</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Company</span>
+      <span class="info-value">Enterprise Corp</span>
+    </div>
+  </div>
+
+  <div class="popup-footer">
+    <a href="http://localhost:5173" target="_blank" class="dashboard-link">Open Admin Dashboard ↗</a>
+  </div>
+</div>
+<script src="popup.js"></script>
+</body>
+</html>

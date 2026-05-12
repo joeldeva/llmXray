@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "TrustGuard for ChatGPT",
+  "version": "1.0.0",
+  "description": "Enterprise AI DLP protection for company-managed ChatGPT usage. Scans prompts, files, and pastes for sensitive data before submission.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*"
+  ],
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "background": {
+    "service_worker": "src/background/serviceWorker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": [
+        "src/shared/config.js",
+        "src/shared/localScanner.js",
+        "src/shared/apiClient.js",
+        "src/content/chatgptSelectors.js",
+        "src/content/uiOverlay.js",
+        "src/content/promptMonitor.js",
+        "src/content/fileMonitor.js",
+        "src/content/chatgptContentScript.js"
+      ],
+      "css": ["src/content/overlay.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "TrustGuard for ChatGPT"
+  }
+}
