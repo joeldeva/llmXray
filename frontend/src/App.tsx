@@ -103,8 +103,17 @@ function App() {
         setTimeout(() => setRecentThreat(false), 2000);
       }
       fetchData();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error testing:", err);
+      if (err.response && err.response.data && err.response.data.error) {
+         setTestResult({
+             action: 'ERROR',
+             policyHit: err.response.data.error,
+             riskScore: 0,
+             detectedIntent: err.response.data.details || 'Connection failed',
+             direction: testDirection
+         });
+      }
     } finally {
       setTesting(false);
     }
@@ -421,12 +430,12 @@ function App() {
           </button>
 
           {testResult && (
-            <div className={`result-card animate-fade-in ${testResult.action.toLowerCase()}`} style={{marginTop: '1.5rem'}}>
+            <div className={`result-card animate-fade-in ${testResult.action === 'ERROR' ? 'deny' : testResult.action.toLowerCase()}`} style={{marginTop: '1.5rem'}}>
               <h3 style={{fontSize: '1rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-                {testResult.action === 'DENY' ? <AlertTriangle size={18} color="var(--status-deny)" /> : 
+                {testResult.action === 'DENY' || testResult.action === 'ERROR' ? <AlertTriangle size={18} color="var(--status-deny)" /> : 
                  testResult.action === 'QUARANTINE' ? <Clock size={18} color="var(--status-quarantine)" /> : 
                  <CheckCircle size={18} color="var(--status-allow)" />}
-                DPI Verdict: {testResult.action}
+                {testResult.action === 'ERROR' ? 'Proxy Connection Failed' : `DPI Verdict: ${testResult.action}`}
               </h3>
               <div style={{fontSize: '0.85rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem'}}>
                 <p><strong>Intent:</strong> {testResult.detectedIntent}</p>

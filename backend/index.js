@@ -198,54 +198,11 @@ app.post('/api/test-prompt', async (req, res) => {
         
         res.json(result);
     } catch (error) {
-        console.error("Lobster Trap Proxy offline. Using local DPI simulation fallback...");
-        
-        let riskScore = 5;
-        let action = 'ALLOW';
-        let policyHit = 'None';
-        let detectedIntent = 'general_query';
-
-        const lowerPrompt = contentToInspect.toLowerCase();
-        if (lowerPrompt.match(/\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b/)) {
-            action = 'DENY'; riskScore = 95; policyHit = 'PII_CREDIT_CARD'; detectedIntent = 'pii_leak';
-        } else if (lowerPrompt.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/)) {
-            action = 'QUARANTINE'; riskScore = 80; policyHit = 'PII_EMAIL'; detectedIntent = 'pii_leak';
-        } else if (lowerPrompt.includes('sk-') || lowerPrompt.includes('ghp_')) {
-            action = 'DENY'; riskScore = 98; policyHit = 'SECRET_EXFILTRATION'; detectedIntent = 'credential_access';
-        } else if (lowerPrompt.includes('aadhaar')) {
-            action = 'DENY'; riskScore = 92; policyHit = 'DPDP_AADHAAR_BLOCK'; detectedIntent = 'pii_leak';
-        } else if (lowerPrompt.includes('ignore') || lowerPrompt.includes('jailbreak') || lowerPrompt.includes('system prompt')) {
-            action = 'DENY'; riskScore = 88; policyHit = 'PROMPT_INJECTION'; detectedIntent = 'jailbreak_attempt';
-        }
-
-        const result = {
-            timestamp: new Date().toISOString(),
-            prompt: contentToInspect,
-            riskScore,
-            action,
-            policyHit,
-            detectedIntent,
-            direction
-        };
-
-        const mockLogEntry = {
-            request_id: 'evt_' + crypto.randomBytes(4).toString('hex'),
-            timestamp: result.timestamp,
-            agent_id: agent_framework,
-            action: result.action,
-            matched_rule: result.policyHit,
-            prompt: result.prompt,
-            direction: result.direction,
-            hash: 'offline_sim_' + Date.now(),
-            ingress: {
-                declared: { declared_intent: 'general_query', agent_id: agent_framework },
-                detected: { intent_category: result.detectedIntent, risk_score: result.riskScore / 100 }
-            }
-        };
-        mockLogEntry.hash = generateLogHash(mockLogEntry);
-        fs.appendFileSync(LOG_FILE_PATH, JSON.stringify(mockLogEntry) + '\n');
-        
-        res.json(result);
+        console.error("Failed to connect to Lobster Trap Proxy:", error.message);
+        res.status(502).json({ 
+            error: "Proxy Connection Failed", 
+            details: `Could not connect to Lobster Trap at ${LOBSTER_TRAP_URL}. Please ensure the DPI proxy is running.` 
+        });
     }
 });
 
