@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Shield, ShieldAlert, Activity, Server, AlertTriangle, CheckCircle, Clock, FileText, Download, Network, Settings, Upload, Lock, Key, Database, FileCheck, CheckSquare, Users } from 'lucide-react';
+import { Shield, ShieldAlert, Activity, Server, AlertTriangle, CheckCircle, Clock, Download, Network, Settings, Upload, Lock, Database, FileCheck, CheckSquare, Users } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from 'recharts';
 import './index.css';
 
@@ -8,8 +8,8 @@ const API_BASE = 'http://localhost:3001/api';
 const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6'];
 
 function App() {
-  const [logs, setLogs] = useState([]);
-  const [stats, setStats] = useState(null);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
   
   // Auth & RBAC
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -23,7 +23,7 @@ function App() {
   const [testAgent, setTestAgent] = useState('LangChain');
   const [testDirection, setTestDirection] = useState('Ingress');
   const [testFileContent, setTestFileContent] = useState('');
-  const [testResult, setTestResult] = useState(null);
+  const [testResult, setTestResult] = useState<any>(null);
   const [testing, setTesting] = useState(false);
 
   // UI state
@@ -60,7 +60,7 @@ function App() {
     }
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = (e: any) => {
     e.preventDefault();
     if (loginEmail && loginPassword.length > 3) {
       setIsAuthenticated(true);
@@ -71,13 +71,13 @@ function App() {
     }
   };
 
-  const ssoLogin = (provider) => {
+  const ssoLogin = (provider: string) => {
     setLoginEmail(`admin@${provider.toLowerCase()}.com`);
     setLoginPassword('password123');
     setIsAuthenticated(true);
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = (e: any) => {
     const file = e.target.files[0];
     if (file) {
       // Mock OCR / File Parsing
@@ -243,7 +243,7 @@ function App() {
                     <YAxis stroke="var(--text-secondary)" fontSize={11} tickLine={false} axisLine={false} />
                     <Tooltip contentStyle={{backgroundColor: 'var(--panel-bg)', borderColor: 'var(--border-color)', borderRadius: '8px'}} itemStyle={{color: 'var(--text-primary)'}} />
                     <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                      {stats.threatTypes.map((entry, index) => (
+                      {stats.threatTypes.map((_entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Bar>
@@ -364,7 +364,7 @@ function App() {
                 <div>
                   <div style={{fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '0.5rem'}}>False-Positive Threshold (Risk Score)</div>
                   <div style={{fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem'}}>If blocks are frustrating employees, increase the tolerance score.</div>
-                  <input type="range" min="10" max="95" value={policyConfig.falsePositiveThreshold} onChange={e => setPolicyConfig({...policyConfig, falsePositiveThreshold: e.target.value})} style={{width: '100%', accentColor: 'var(--accent-blue)'}} />
+                  <input type="range" min="10" max="95" value={policyConfig.falsePositiveThreshold} onChange={e => setPolicyConfig({...policyConfig, falsePositiveThreshold: Number(e.target.value)})} style={{width: '100%', accentColor: 'var(--accent-blue)'}} />
                   <div style={{textAlign: 'right', fontSize: '0.8rem', color: 'var(--accent-cyan)'}}>{policyConfig.falsePositiveThreshold} / 100</div>
                 </div>
               </div>
@@ -401,7 +401,7 @@ function App() {
             </div>
           </div>
 
-          <div style={{background: 'rgba(0,0,0,0.2)', border: '1px dashed var(--border-color)', borderRadius: '8px', padding: '1.5rem', textAlign: 'center', marginBottom: '1rem', cursor: 'pointer', position: 'relative'}} onClick={() => document.getElementById('file-upload').click()}>
+          <div style={{background: 'rgba(0,0,0,0.2)', border: '1px dashed var(--border-color)', borderRadius: '8px', padding: '1.5rem', textAlign: 'center', marginBottom: '1rem', cursor: 'pointer', position: 'relative'}} onClick={() => document.getElementById('file-upload')?.click()}>
             <input type="file" id="file-upload" style={{display: 'none'}} onChange={handleFileUpload} />
             <Upload size={24} color="var(--text-secondary)" style={{margin: '0 auto 0.5rem auto'}} />
             <div style={{fontSize: '0.9rem'}}>File Upload & OCR Scanning Test</div>
