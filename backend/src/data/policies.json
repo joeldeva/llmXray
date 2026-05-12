@@ -1,0 +1,101 @@
+[
+  {
+    "id": "POL_SECRET_BLOCK",
+    "name": "API Key & Secret Detection",
+    "enabled": true,
+    "matchCategories": [
+      "secrets"
+    ],
+    "matchRuleIds": [],
+    "minSeverity": "high",
+    "action": "ALLOW",
+    "description": "Block any prompt containing API keys, tokens, passwords, or secrets."
+  },
+  {
+    "id": "POL_INJECTION_BLOCK",
+    "name": "Prompt Injection Detection",
+    "enabled": true,
+    "matchCategories": [
+      "injections"
+    ],
+    "matchRuleIds": [],
+    "minSeverity": "high",
+    "action": "BLOCK",
+    "description": "Block prompt injection and jailbreak attempts."
+  },
+  {
+    "id": "POL_BULK_PII_BLOCK",
+    "name": "Bulk PII Detection",
+    "enabled": true,
+    "matchCategories": [
+      "pii"
+    ],
+    "matchRuleIds": [],
+    "minSeverity": "high",
+    "action": "BLOCK",
+    "description": "Block if multiple high-severity PII items detected.",
+    "minFindingCount": 3
+  },
+  {
+    "id": "POL_PII_WARN",
+    "name": "Single PII Warning",
+    "enabled": true,
+    "matchCategories": [
+      "pii"
+    ],
+    "matchRuleIds": [],
+    "minSeverity": "medium",
+    "action": "WARN",
+    "description": "Warn employee when PII is detected in a prompt."
+  },
+  {
+    "id": "POL_FINANCIAL_REVIEW",
+    "name": "Financial Data Review",
+    "enabled": true,
+    "matchCategories": [
+      "financial"
+    ],
+    "matchRuleIds": [],
+    "minSeverity": "medium",
+    "action": "HUMAN_REVIEW",
+    "description": "Send financial data events to security review queue."
+  },
+  {
+    "id": "POL_HR_REVIEW",
+    "name": "HR Confidential Review",
+    "enabled": true,
+    "matchCategories": [
+      "hr"
+    ],
+    "matchRuleIds": [],
+    "minSeverity": "medium",
+    "action": "HUMAN_REVIEW",
+    "description": "Send HR-related events to security review queue."
+  },
+  {
+    "id": "POL_CONFIDENTIAL_WARN",
+    "name": "Confidential Business Data",
+    "enabled": true,
+    "matchCategories": [
+      "confidential"
+    ],
+    "matchRuleIds": [],
+    "minSeverity": "high",
+    "action": "WARN",
+    "description": "Warn employee when confidential business markers are detected."
+  },
+  {
+    "id": "POL_TRADE_SECRET_BLOCK",
+    "name": "Trade Secret Block",
+    "enabled": true,
+    "matchCategories": [],
+    "matchRuleIds": [
+      "TRADE_SECRET",
+      "BOARD_MEETING",
+      "ACQUISITION"
+    ],
+    "minSeverity": "critical",
+    "action": "QUARANTINE",
+    "description": "Quarantine any prompt referencing trade secrets, board meetings, or M&A."
+  }
+]
