@@ -27,6 +27,21 @@ function App() {
   const [savingPolicy, setSavingPolicy] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard'); // dashboard, policy
   const [recentThreat, setRecentThreat] = useState(false);
+  
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginEmail && loginPassword.length > 3) {
+      setIsAuthenticated(true);
+    } else {
+      setLoginError('Invalid enterprise credentials');
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -125,12 +140,41 @@ function App() {
     document.body.removeChild(a);
   };
 
-  if (!stats) return <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white'}}>Initializing TrustGuard DPI Proxy...</div>;
+  if (!isAuthenticated) {
+    return (
+      <div className="login-container animate-fade-in">
+        <div className="glass-panel login-box">
+          <div style={{textAlign: 'center', marginBottom: '2rem'}}>
+            <Shield size={48} color="var(--accent-blue)" style={{marginBottom: '1rem'}} />
+            <h2>TrustGuard Enterprise</h2>
+            <p style={{color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.5rem'}}>Sign in to access the DPI Dashboard</p>
+          </div>
+          <form onSubmit={handleLogin} style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+            <div>
+              <label style={{fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', display: 'block'}}>Enterprise Email</label>
+              <input type="email" className="input-field" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="admin@enterprise.com" required style={{width: '100%', padding: '0.8rem'}} />
+            </div>
+            <div>
+              <label style={{fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', display: 'block'}}>Password</label>
+              <input type="password" className="input-field" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="••••••••" required style={{width: '100%', padding: '0.8rem'}} />
+            </div>
+            {loginError && <div style={{color: 'var(--status-deny)', fontSize: '0.85rem'}}>{loginError}</div>}
+            <button type="submit" className="btn" style={{width: '100%', padding: '0.8rem', marginTop: '0.5rem'}}>Authenticate Securely</button>
+          </form>
+          <div style={{textAlign: 'center', marginTop: '1.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)'}}>
+            Protected by Veea Lobster Trap DPI Infrastructure
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!stats) return <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white'}}>Initializing Lobster Trap DPI Proxy...</div>;
 
   return (
     <div className="dashboard-container">
       <header className="header animate-fade-in" style={{animationDelay: '0.1s'}}>
-        <h1><Shield size={32} color="#3b82f6" /> TrustGuard Enterprise DPI Portal <span style={{fontSize: '0.5em', background: 'var(--panel-bg)', padding: '4px 8px', borderRadius: '4px', verticalAlign: 'middle', marginLeft: '10px'}}>Powered by TrustGuard Engine</span></h1>
+        <h1><Shield size={32} color="#3b82f6" /> TrustGuard Enterprise DPI Portal <span style={{fontSize: '0.5em', background: 'var(--panel-bg)', padding: '4px 8px', borderRadius: '4px', verticalAlign: 'middle', marginLeft: '10px'}}>Powered by Veea Lobster Trap</span></h1>
         <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
           <button className="btn-secondary" onClick={exportComplianceReport} style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
             <Download size={16} /> Export SOC2/HIPAA Report
@@ -183,7 +227,7 @@ function App() {
               </div>
               <div className="node proxy" style={{transform: recentThreat ? 'scale(1.1)' : 'scale(1)', transition: 'all 0.2s', borderColor: recentThreat ? 'var(--status-deny)' : 'var(--accent-cyan)'}}>
                 <ShieldAlert size={32} color={recentThreat ? "var(--status-deny)" : "var(--accent-cyan)"} />
-                <span style={{fontSize: '0.85rem', fontWeight: 'bold'}}>TrustGuard Proxy</span>
+                <span style={{fontSize: '0.85rem', fontWeight: 'bold'}}>Lobster Trap Proxy</span>
               </div>
               <div className="node">
                 <Activity size={24} color="var(--text-secondary)" />
@@ -372,7 +416,7 @@ function App() {
             <div>
               <h2 style={{fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
                 <FileText size={24} color="var(--accent-blue)" />
-                TrustGuard YAML Policy
+                Lobster Trap YAML Policy
               </h2>
               <p style={{color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.5rem'}}>
                 First-match-wins logic. Edit the policy configuration to update agent governance rules in real-time.

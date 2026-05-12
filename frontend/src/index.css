@@ -335,3 +335,6 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }
+
+.login-container { display: flex; justify-content: center; alignItems: center; height: 100vh; background: var(--bg-color); }
+.login-box { width: 100%; max-width: 400px; padding: 2.5rem; border: 1px solid var(--border-color); box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 12px; margin-top: 10vh; }
