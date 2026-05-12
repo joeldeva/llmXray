@@ -43,6 +43,9 @@ async function handleSubmit(source) {
     // Backend unreachable - allow but log locally
     setBadgeStatus('error');
     setTimeout(() => setBadgeStatus('active'), 3000);
+    // Programmatically submit since we prevented it
+    const sendBtn = findSendButton();
+    if (sendBtn) sendBtn.click();
     return;
   }
 
@@ -50,6 +53,9 @@ async function handleSubmit(source) {
 
   if (decision === 'ALLOW') {
     setBadgeStatus('active');
+    // Programmatically submit
+    const sendBtn = findSendButton();
+    if (sendBtn) sendBtn.click();
     return; // Allow send to proceed
   }
 
@@ -57,7 +63,10 @@ async function handleSubmit(source) {
     setBadgeStatus('warning');
     const userChoice = await showWarnModal(result);
     setBadgeStatus('active');
-    if (userChoice === 'CONTINUE') return; // Let send proceed
+    if (userChoice === 'CONTINUE') {
+      const sendBtn = findSendButton();
+      if (sendBtn) sendBtn.click();
+    }
     return; // Cancelled
   }
 
@@ -71,6 +80,8 @@ async function handleSubmit(source) {
       }
     }
     setBadgeStatus('active');
+    const sendBtn = findSendButton();
+    if (sendBtn) sendBtn.click();
     return; // Allow masked send
   }
 
@@ -90,32 +101,29 @@ async function handleSubmit(source) {
 }
 
 function attachPromptMonitor() {
-  composerEl = findComposer();
-
-  if (!composerEl) {
-    console.warn('[TrustGuard] Composer not found. Will retry.');
-    return false;
-  }
-
-  // Paste event - local scan only on paste
-  composerEl.addEventListener('paste', async (e) => {
+  // Use document delegation to catch it early
+  document.addEventListener('paste', async (e) => {
+    const isComposer = e.target.closest('#prompt-textarea') || e.target.closest('div[contenteditable="true"]');
+    if (!isComposer) return;
+    
     setTimeout(async () => {
+      composerEl = isComposer;
       const text = getComposerText(composerEl);
       const localHits = localScan(text);
-      if (localHits.length > 0) {
-        setBadgeStatus('warning');
-      } else {
-        setBadgeStatus('active');
-      }
+      if (localHits.length > 0) setBadgeStatus('warning');
+      else setBadgeStatus('active');
     }, 100);
-  });
+  }, true);
 
   // Keydown: intercept Enter to scan before send
-  composerEl.addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      await handleSubmit('enter_key');
+  document.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && e.isTrusted) {
+      const isComposer = e.target.closest('#prompt-textarea') || e.target.closest('div[contenteditable="true"]');
+      if (isComposer) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        await handleSubmit('enter_key');
+      }
     }
   }, true);
 
@@ -123,10 +131,9 @@ function attachPromptMonitor() {
 }
 
 function attachSendButtonMonitor() {
-  // Use event delegation on document since send button may re-render
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-testid="send-button"], button[aria-label="Send prompt"], button[aria-label="Send message"]');
-    if (btn) {
+    if (btn && e.isTrusted) { // ONLY intercept real user clicks
       e.preventDefault();
       e.stopImmediatePropagation();
       await handleSubmit('send_button');
