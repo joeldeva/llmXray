@@ -1,5 +1,67 @@
 [
   {
+    "id": "evt_a8c6d1ce912f",
+    "timestamp": "2026-05-13T07:03:13.019Z",
+    "site": "chatgpt.com",
+    "userId": "employee@enterprise.com",
+    "department": "General",
+    "eventType": "FILE_SCAN",
+    "riskScore": 45,
+    "riskLevel": "MEDIUM",
+    "decision": "HUMAN_REVIEW",
+    "policyHits": [
+      "POL_PII_WARN",
+      "POL_FINANCIAL_REVIEW"
+    ],
+    "evidence": "Detected 385 email address(es) | Detected PAN card pattern | Detected: UPI ID",
+    "fileMeta": {
+      "name": "department_business_records.csv",
+      "type": "text/csv",
+      "size": 240557
+    },
+    "status": "blocked",
+    "rawStored": false
+  },
+  {
+    "id": "evt_4b117cd747d5",
+    "timestamp": "2026-05-13T07:02:55.851Z",
+    "site": "chatgpt.com",
+    "userId": "employee@enterprise.com",
+    "department": "General",
+    "eventType": "PROMPT_SCAN",
+    "riskScore": 0,
+    "riskLevel": "LOW",
+    "decision": "ALLOW",
+    "policyHits": [],
+    "evidence": null,
+    "url": "https://chatgpt.com/c/6a0383ff-3bd0-83e8-9cc9-274cb0d3802e",
+    "status": "allowed",
+    "rawStored": false
+  },
+  {
+    "id": "evt_9debea7ef6e4",
+    "timestamp": "2026-05-13T07:02:49.393Z",
+    "site": "chatgpt.com",
+    "userId": "employee@enterprise.com",
+    "department": "General",
+    "eventType": "FILE_SCAN",
+    "riskScore": 45,
+    "riskLevel": "MEDIUM",
+    "decision": "HUMAN_REVIEW",
+    "policyHits": [
+      "POL_PII_WARN",
+      "POL_FINANCIAL_REVIEW"
+    ],
+    "evidence": "Detected 385 email address(es) | Detected PAN card pattern | Detected: UPI ID",
+    "fileMeta": {
+      "name": "department_business_records.csv",
+      "type": "text/csv",
+      "size": 240557
+    },
+    "status": "blocked",
+    "rawStored": false
+  },
+  {
     "id": "evt_seed001",
     "timestamp": "2026-05-12T08:30:00.000Z",
     "site": "chatgpt.com",
@@ -9,7 +71,9 @@
     "riskScore": 95,
     "riskLevel": "CRITICAL",
     "decision": "BLOCK",
-    "policyHits": ["POL_SECRET_BLOCK"],
+    "policyHits": [
+      "POL_SECRET_BLOCK"
+    ],
     "evidence": "Detected pattern: {OPENAI_API_KEY}",
     "url": "https://chatgpt.com/",
     "status": "blocked",
@@ -25,7 +89,9 @@
     "riskScore": 72,
     "riskLevel": "HIGH",
     "decision": "HUMAN_REVIEW",
-    "policyHits": ["POL_FINANCIAL_REVIEW"],
+    "policyHits": [
+      "POL_FINANCIAL_REVIEW"
+    ],
     "evidence": "Detected employee salary data reference | Detected bank account number pattern",
     "url": "https://chatgpt.com/",
     "status": "review",
@@ -41,7 +107,9 @@
     "riskScore": 88,
     "riskLevel": "CRITICAL",
     "decision": "BLOCK",
-    "policyHits": ["POL_INJECTION_BLOCK"],
+    "policyHits": [
+      "POL_INJECTION_BLOCK"
+    ],
     "evidence": "Detected: Ignore instructions override | Detected: System prompt extraction",
     "url": "https://chatgpt.com/",
     "status": "blocked",
@@ -57,9 +125,16 @@
     "riskScore": 65,
     "riskLevel": "HIGH",
     "decision": "HUMAN_REVIEW",
-    "policyHits": ["POL_PII_WARN", "POL_BULK_PII_BLOCK"],
+    "policyHits": [
+      "POL_PII_WARN",
+      "POL_BULK_PII_BLOCK"
+    ],
     "evidence": "Detected 52 email addresses | Detected 48 Indian phone number(s)",
-    "fileMeta": { "name": "customer_data.csv", "type": "text/csv", "size": 48320 },
+    "fileMeta": {
+      "name": "customer_data.csv",
+      "type": "text/csv",
+      "size": 48320
+    },
     "url": "https://chatgpt.com/",
     "status": "review",
     "rawStored": false

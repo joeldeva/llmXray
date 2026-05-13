@@ -1,8 +1,56 @@
 [
   {
+    "id": "rev_1d62afea600b",
+    "timestamp": "2026-05-13T07:03:13.022Z",
+    "status": "APPROVED",
+    "reviewerNote": null,
+    "reviewedAt": "2026-05-13T07:12:29.999Z",
+    "eventId": "evt_a8c6d1ce912f",
+    "site": "chatgpt.com",
+    "userId": "employee@enterprise.com",
+    "department": "General",
+    "eventType": "FILE_SCAN",
+    "riskScore": 45,
+    "decision": "HUMAN_REVIEW",
+    "policyHits": [
+      "POL_PII_WARN",
+      "POL_FINANCIAL_REVIEW"
+    ],
+    "evidence": "Detected 385 email address(es) | Detected PAN card pattern | Detected: UPI ID",
+    "fileMeta": {
+      "name": "department_business_records.csv",
+      "type": "text/csv",
+      "size": 240557
+    }
+  },
+  {
+    "id": "rev_7de291cc9adb",
+    "timestamp": "2026-05-13T07:02:49.402Z",
+    "status": "REJECTED",
+    "reviewerNote": null,
+    "reviewedAt": "2026-05-13T07:12:31.594Z",
+    "eventId": "evt_9debea7ef6e4",
+    "site": "chatgpt.com",
+    "userId": "employee@enterprise.com",
+    "department": "General",
+    "eventType": "FILE_SCAN",
+    "riskScore": 45,
+    "decision": "HUMAN_REVIEW",
+    "policyHits": [
+      "POL_PII_WARN",
+      "POL_FINANCIAL_REVIEW"
+    ],
+    "evidence": "Detected 385 email address(es) | Detected PAN card pattern | Detected: UPI ID",
+    "fileMeta": {
+      "name": "department_business_records.csv",
+      "type": "text/csv",
+      "size": 240557
+    }
+  },
+  {
     "id": "rev_seed001",
     "timestamp": "2026-05-12T09:15:00.000Z",
-    "status": "PENDING",
+    "status": "APPROVED",
     "site": "chatgpt.com",
     "userId": "bob@enterprise.com",
     "department": "Finance",
@@ -10,15 +58,17 @@
     "riskScore": 72,
     "riskLevel": "HIGH",
     "decision": "HUMAN_REVIEW",
-    "policyHits": ["POL_FINANCIAL_REVIEW"],
+    "policyHits": [
+      "POL_FINANCIAL_REVIEW"
+    ],
     "evidence": "Detected employee salary data reference | Detected bank account number pattern",
     "reviewerNote": null,
-    "reviewedAt": null
+    "reviewedAt": "2026-05-13T07:12:33.716Z"
   },
   {
     "id": "rev_seed002",
     "timestamp": "2026-05-12T10:45:00.000Z",
-    "status": "PENDING",
+    "status": "REJECTED",
     "site": "chatgpt.com",
     "userId": "dave@enterprise.com",
     "department": "Sales",
@@ -26,10 +76,16 @@
     "riskScore": 65,
     "riskLevel": "HIGH",
     "decision": "HUMAN_REVIEW",
-    "policyHits": ["POL_BULK_PII_BLOCK"],
+    "policyHits": [
+      "POL_BULK_PII_BLOCK"
+    ],
     "evidence": "Detected 52 email addresses | Detected 48 Indian phone number(s)",
-    "fileMeta": { "name": "customer_data.csv", "type": "text/csv", "size": 48320 },
+    "fileMeta": {
+      "name": "customer_data.csv",
+      "type": "text/csv",
+      "size": 48320
+    },
     "reviewerNote": null,
-    "reviewedAt": null
+    "reviewedAt": "2026-05-13T07:12:36.699Z"
   }
 ]
