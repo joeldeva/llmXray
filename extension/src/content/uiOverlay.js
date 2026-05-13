@@ -61,11 +61,15 @@ function showBlockModal(scanResult) {
         <p class="tg-modal-tip">⚠️ Do not paste API keys, credentials, passwords, or confidential data into ChatGPT.</p>
       </div>
       <div class="tg-modal-footer">
-        <button class="tg-btn tg-btn-close" onclick="document.getElementById('tg-modal-overlay').style.display='none'">Dismiss</button>
+        <button class="tg-btn tg-btn-close" id="tg-block-dismiss">Dismiss</button>
       </div>
     `;
     tgModalOverlay.style.display = 'flex';
-    resolve('BLOCK');
+    
+    document.getElementById('tg-block-dismiss').onclick = () => {
+      tgModalOverlay.style.display = 'none';
+      resolve('BLOCK');
+    };
   });
 }
 
@@ -117,10 +121,14 @@ function showReviewModal(scanResult) {
         <p style="font-size:0.85rem;color:#94a3b8;margin-top:0.5rem;">A security administrator will review this request. You will be notified of the outcome.</p>
       </div>
       <div class="tg-modal-footer">
-        <button class="tg-btn tg-btn-close" onclick="document.getElementById('tg-modal-overlay').style.display='none'">OK</button>
+        <button class="tg-btn tg-btn-close" id="tg-review-dismiss">OK</button>
       </div>
     `;
     tgModalOverlay.style.display = 'flex';
-    resolve('REVIEW');
+    
+    document.getElementById('tg-review-dismiss').onclick = () => {
+      tgModalOverlay.style.display = 'none';
+      resolve('REVIEW');
+    };
   });
 }
