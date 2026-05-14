@@ -7,6 +7,7 @@ const fs = require('fs');
 const readline = require('readline');
 const path = require('path');
 const crypto = require('crypto');
+const logger = require('./src/utils/logger');
 
 const app = express();
 
@@ -56,7 +57,7 @@ async function readAuditLogs() {
                 hash: entry.hash || generateLogHash(entry)
             });
         } catch (e) {
-            console.error("Error parsing log line:", e);
+            logger.error("Error parsing log line:", e);
         }
     }
     return logs;
@@ -198,7 +199,7 @@ app.post('/api/test-prompt', async (req, res) => {
         
         res.json(result);
     } catch (error) {
-        console.error("Failed to connect to Lobster Trap Proxy:", error.message);
+        logger.error("Failed to connect to Lobster Trap Proxy:", error.message);
         res.status(502).json({ 
             error: "Proxy Connection Failed", 
             details: `Could not connect to Lobster Trap at ${LOBSTER_TRAP_URL}. Please ensure the DPI proxy is running.` 
@@ -208,5 +209,5 @@ app.post('/api/test-prompt', async (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-    console.log(`[PRODUCTION] TrustGuard Backend connected to Lobster Trap on port ${PORT}`);
+    logger.info(`[PRODUCTION] TrustGuard Backend connected to Lobster Trap on port ${PORT}`);
 });
