@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const logger = require('./utils/logger');
 
 const extensionRoutes = require('./routes/extension.routes');
 const auditRoutes = require('./routes/audit.routes');
@@ -35,12 +36,12 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  logger.error(err.stack);
   res.status(500).json({ error: 'Internal server error' });
 });
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`[TrustGuard] Backend running on port ${PORT}`);
-  console.log(`[TrustGuard] Health: http://localhost:${PORT}/api/health`);
+  logger.info(`[TrustGuard] Backend running on port ${PORT}`);
+  logger.info(`[TrustGuard] Health: http://localhost:${PORT}/api/health`);
 });
