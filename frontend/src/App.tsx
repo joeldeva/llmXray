@@ -1,11 +1,98 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
-import { Shield, ShieldAlert, Activity, AlertTriangle, CheckCircle, Clock, FileText, Download, Settings, Lock, FileCheck, CheckSquare, PuzzleIcon, RefreshCw, X, ChevronRight } from 'lucide-react';
+import { Shield, ShieldAlert, Activity, AlertTriangle, CheckCircle, Clock, FileText, Download, Settings, Lock, FileCheck, CheckSquare, RefreshCw, X, ChevronRight, LogOut, Monitor } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, PieChart, Pie, Legend } from 'recharts';
 import './index.css';
+import { LandingPage } from './components/LandingPage';
 
-const API = 'http://localhost:3001/api';
-// Decision → color map available for future chart use
+const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+
+type Stats = {
+  total: number;
+  blocked: number;
+  warned: number;
+  humanReview: number;
+  quarantined: number;
+  critical: number;
+  fileScans: number;
+  topPolicyHits?: Array<{ name: string; value: number }>;
+};
+
+type BackendHealth = {
+  status: 'checking' | 'online' | 'offline';
+  service?: string;
+  checkedAt?: string;
+};
+
+type AuditLog = {
+  id: string;
+  timestamp: string;
+  userId: string;
+  department: string;
+  eventType: string;
+  riskLevel: string;
+  riskScore: number;
+  decision: string;
+  policyHits?: string[];
+  evidence?: string;
+  fileMeta?: { name: string };
+  entryHash?: string;
+};
+
+type AuditLogsResponse = {
+  events: AuditLog[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+type AuditIntegrity = {
+  valid: boolean;
+  checked: number;
+  headHash: string | null;
+  errors: Array<{ id: string; reason: string }>;
+};
+
+type Policy = {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  action: string;
+};
+
+type ReviewItem = {
+  id: string;
+  timestamp: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewerNote?: string | null;
+  userId: string;
+  department: string;
+  eventType: string;
+  decision: string;
+  riskLevel?: string;
+  policyHits?: string[];
+  evidence?: string;
+};
+
+type Device = {
+  tenantId: string;
+  deviceId: string;
+  userId: string;
+  status: 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
+  clientVersion?: string | null;
+  firstSeen: string;
+  lastSeen: string;
+};
+
+type AuthSession = {
+  token: string;
+  user: { email: string; role: string; permissions: string[] };
+  usingDefaultCredentials?: boolean;
+};
 
 function RiskBadge({ level }: { level: string }) {
   const map: Record<string, string> = { CRITICAL: 'badge deny', HIGH: 'badge quarantine', MEDIUM: 'badge warn', LOW: 'badge allow' };
@@ -17,68 +104,211 @@ function DecisionBadge({ decision }: { decision: string }) {
   return <span className={map[decision] || 'badge allow'}>{decision}</span>;
 }
 
-export default function App() {
+function AdminPortal() {
   const [tab, setTab] = useState('dashboard');
-  const [stats, setStats] = useState<any>(null);
-  const [logs, setLogs] = useState<any[]>([]);
-  const [policies, setPolicies] = useState<any[]>([]);
-  const [reviewQueue, setReviewQueue] = useState<any[]>([]);
-  const [_loading, setLoading] = useState(false);
+  const [token, setToken] = useState(() => localStorage.getItem('lx_admin_token') || '');
+  const [apiKey] = useState(() => localStorage.getItem('lx_api_key') || import.meta.env.VITE_LLMXRAY_API_KEY || '');
+  const [adminEmail, setAdminEmail] = useState(() => localStorage.getItem('lx_admin_email') || '');
+  const [adminRole, setAdminRole] = useState(() => localStorage.getItem('lx_admin_role') || '');
+  const [permissions, setPermissions] = useState<string[]>(() => JSON.parse(localStorage.getItem('lx_admin_permissions') || '[]'));
+  const [loginEmail, setLoginEmail] = useState(adminEmail || 'admin@llmxray.local');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authWarning, setAuthWarning] = useState('');
+  const [backendHealth, setBackendHealth] = useState<BackendHealth>({ status: 'checking' });
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [policies, setPolicies] = useState<Policy[]>([]);
+  const [reviewQueue, setReviewQueue] = useState<ReviewItem[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [integrity, setIntegrity] = useState<AuditIntegrity | null>(null);
   const [reviewNote, setReviewNote] = useState('');
   const [selectedReview, setSelectedReview] = useState<string | null>(null);
 
-  const fetchAll = async () => {
-    setLoading(true);
+  const authHeaders = useCallback(() => ({
+    Authorization: `Bearer ${token}`,
+    ...(apiKey ? { 'X-Api-Key': apiKey } : {}),
+  }), [apiKey, token]);
+
+  const clearSession = useCallback(() => {
+    localStorage.removeItem('lx_admin_token');
+    localStorage.removeItem('lx_admin_email');
+    localStorage.removeItem('lx_admin_role');
+    localStorage.removeItem('lx_admin_permissions');
+    setToken('');
+    setAdminEmail('');
+    setAdminRole('');
+    setPermissions([]);
+    setStats(null);
+    setLogs([]);
+    setPolicies([]);
+    setReviewQueue([]);
+    setDevices([]);
+    setIntegrity(null);
+  }, []);
+
+  const can = useCallback((permission: string) => permissions.includes(permission), [permissions]);
+
+  const checkBackendHealth = useCallback(async () => {
     try {
-      const [s, l, p, r] = await Promise.all([
-        axios.get(`${API}/audit/stats`),
-        axios.get(`${API}/audit/logs`),
-        axios.get(`${API}/policies`),
-        axios.get(`${API}/review`),
+      const response = await axios.get<{ status: string; service: string }>(`${API}/health`, { timeout: 3000 });
+      setBackendHealth({
+        status: response.data.status === 'ok' ? 'online' : 'offline',
+        service: response.data.service,
+        checkedAt: new Date().toISOString(),
+      });
+    } catch {
+      setBackendHealth({ status: 'offline', checkedAt: new Date().toISOString() });
+    }
+  }, []);
+
+  const fetchAll = useCallback(async () => {
+    if (!token) return;
+    try {
+      const [s, l, p, r, d] = await Promise.all([
+        axios.get<Stats>(`${API}/audit/stats`, { headers: authHeaders() }),
+        axios.get<AuditLogsResponse | AuditLog[]>(`${API}/audit/logs`, { headers: authHeaders() }),
+        can('policy:read') ? axios.get<Policy[]>(`${API}/policies`, { headers: authHeaders() }) : Promise.resolve({ data: [] as Policy[] }),
+        can('review:read') ? axios.get<ReviewItem[]>(`${API}/review`, { headers: authHeaders() }) : Promise.resolve({ data: [] as ReviewItem[] }),
+        can('device:read') ? axios.get<Device[]>(`${API}/devices`, { headers: authHeaders() }) : Promise.resolve({ data: [] as Device[] }),
       ]);
       setStats(s.data);
-      setLogs(l.data);
+      setLogs(Array.isArray(l.data) ? l.data : l.data.events);
       setPolicies(p.data);
       setReviewQueue(r.data);
+      setDevices(d.data);
     } catch (e) {
+      if (axios.isAxiosError(e) && e.response?.status === 401) {
+        clearSession();
+      }
       console.error('Failed to fetch data', e);
     }
-    setLoading(false);
+  }, [authHeaders, can, clearSession, token]);
+
+  useEffect(() => {
+    if (!token) return;
+    const timer = window.setTimeout(() => {
+      void checkBackendHealth();
+      void fetchAll();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [checkBackendHealth, fetchAll, token]);
+
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setAuthError('');
+    setAuthWarning('');
+
+    try {
+      const response = await axios.post<AuthSession>(`${API}/auth/login`, {
+        email: loginEmail,
+        password: loginPassword,
+      });
+      localStorage.setItem('lx_admin_token', response.data.token);
+      localStorage.setItem('lx_admin_email', response.data.user.email);
+      localStorage.setItem('lx_admin_role', response.data.user.role);
+      localStorage.setItem('lx_admin_permissions', JSON.stringify(response.data.user.permissions || []));
+      setToken(response.data.token);
+      setAdminEmail(response.data.user.email);
+      setAdminRole(response.data.user.role);
+      setPermissions(response.data.user.permissions || []);
+      setLoginPassword('');
+      void checkBackendHealth();
+      if (response.data.usingDefaultCredentials) {
+        setAuthWarning('Development credentials are active. Set ADMIN_EMAIL, ADMIN_PASSWORD_HASH, and JWT_SECRET before production.');
+      }
+    } catch (e) {
+      if (axios.isAxiosError(e) && e.response?.status === 401) {
+        setAuthError('Invalid email or password.');
+      } else {
+        setAuthError('Could not reach LlmXray backend.');
+      }
+    }
   };
 
-  useEffect(() => { fetchAll(); }, []);
-
-  const togglePolicy = async (policy: any) => {
-    await axios.put(`${API}/policies/${policy.id}`, { ...policy, enabled: !policy.enabled });
+  const togglePolicy = async (policy: Policy) => {
+    if (!can('policy:write')) return;
+    await axios.put(`${API}/policies/${policy.id}`, { ...policy, enabled: !policy.enabled }, { headers: authHeaders() });
     fetchAll();
   };
 
-  const changeAction = async (policy: any, action: string) => {
-    await axios.put(`${API}/policies/${policy.id}`, { ...policy, action });
+  const changeAction = async (policy: Policy, action: string) => {
+    if (!can('policy:write')) return;
+    await axios.put(`${API}/policies/${policy.id}`, { ...policy, action }, { headers: authHeaders() });
     fetchAll();
   };
 
   const handleApprove = async (id: string) => {
-    await axios.post(`${API}/review/${id}/approve`, { note: reviewNote });
+    if (!can('review:write')) return;
+    await axios.post(`${API}/review/${id}/approve`, { note: reviewNote }, { headers: authHeaders() });
     setSelectedReview(null);
     setReviewNote('');
     fetchAll();
   };
 
   const handleReject = async (id: string) => {
-    await axios.post(`${API}/review/${id}/reject`, { note: reviewNote });
+    if (!can('review:write')) return;
+    await axios.post(`${API}/review/${id}/reject`, { note: reviewNote }, { headers: authHeaders() });
     setSelectedReview(null);
     setReviewNote('');
+    fetchAll();
+  };
+
+  const verifyAudit = async () => {
+    if (!can('audit:verify')) return;
+    const response = await axios.get<AuditIntegrity>(`${API}/audit/verify`, { headers: authHeaders() });
+    setIntegrity(response.data);
+  };
+
+  const updateDeviceStatus = async (device: Device, status: Device['status']) => {
+    if (!can('device:write')) return;
+    await axios.patch(`${API}/devices/${encodeURIComponent(device.tenantId)}/${encodeURIComponent(device.deviceId)}`, { status }, { headers: authHeaders() });
     fetchAll();
   };
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <Activity size={16} /> },
     { id: 'audit', label: 'Audit Logs', icon: <FileCheck size={16} /> },
-    { id: 'policies', label: 'Policies', icon: <Settings size={16} /> },
-    { id: 'review', label: `Review Queue ${reviewQueue.filter(r => r.status === 'PENDING').length > 0 ? `(${reviewQueue.filter(r => r.status === 'PENDING').length})` : ''}`, icon: <Clock size={16} /> },
-    { id: 'extension', label: 'Extension', icon: <PuzzleIcon size={16} /> },
+    ...(can('policy:read') ? [{ id: 'policies', label: 'Policies', icon: <Settings size={16} /> }] : []),
+    ...(can('review:read') ? [{ id: 'review', label: `Review Queue ${reviewQueue.filter(r => r.status === 'PENDING').length > 0 ? `(${reviewQueue.filter(r => r.status === 'PENDING').length})` : ''}`, icon: <Clock size={16} /> }] : []),
+    ...(can('device:read') ? [{ id: 'devices', label: 'API Clients', icon: <Monitor size={16} /> }] : []),
   ];
+
+  if (!token) {
+    return (
+      <div className="login-shell">
+        <form className="login-panel" onSubmit={handleLogin}>
+          <div className="login-brand">
+            <Shield size={32} color="#3b82f6" />
+            <div>
+              <div className="brand-name">LlmXray</div>
+              <div className="brand-sub">Admin Portal</div>
+            </div>
+          </div>
+          <label className="field-label" htmlFor="admin-email">Email</label>
+          <input
+            id="admin-email"
+            className="text-field"
+            value={loginEmail}
+            onChange={e => setLoginEmail(e.target.value)}
+            autoComplete="username"
+          />
+          <label className="field-label" htmlFor="admin-password">Password</label>
+          <input
+            id="admin-password"
+            className="text-field"
+            type="password"
+            value={loginPassword}
+            onChange={e => setLoginPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+          {authError && <div className="auth-error">{authError}</div>}
+          {authWarning && <div className="auth-warning">{authWarning}</div>}
+          <button className="btn btn-primary" type="submit">Sign in</button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -87,7 +317,7 @@ export default function App() {
         <div className="sidebar-brand">
           <Shield size={28} color="#3b82f6" />
           <div>
-            <div className="brand-name">TrustGuard</div>
+            <div className="brand-name">LlmXray</div>
             <div className="brand-sub">Admin Portal</div>
           </div>
         </div>
@@ -100,9 +330,10 @@ export default function App() {
         </nav>
         <div className="sidebar-footer">
           <div className="proxy-status">
-            <span className="dot-green"></span> Backend Online
+            <span className={backendHealth.status === 'online' ? 'dot-green' : 'dot-red'}></span>
+            Backend {backendHealth.status === 'online' ? 'Online' : backendHealth.status === 'checking' ? 'Checking' : 'Offline'}
           </div>
-          <div style={{ fontSize: '0.7rem', color: '#475569', marginTop: '0.25rem' }}>TrustGuard v1.0.0</div>
+          <div style={{ fontSize: '0.7rem', color: '#475569', marginTop: '0.25rem' }}>LlmXray v1.0.0</div>
         </div>
       </aside>
 
@@ -114,9 +345,13 @@ export default function App() {
             {tab === 'audit' && 'Audit Logs'}
             {tab === 'policies' && 'Policy Management'}
             {tab === 'review' && 'Human Review Queue'}
-            {tab === 'extension' && 'Extension Deployment'}
+            {tab === 'devices' && 'API Clients'}
           </h1>
-          <button className="btn-icon" onClick={fetchAll} title="Refresh"><RefreshCw size={16} /></button>
+          <div className="topbar-actions">
+            <span className="admin-chip">{adminEmail} · {adminRole || 'user'}</span>
+            <button className="btn-icon" onClick={() => { void checkBackendHealth(); void fetchAll(); }} title="Refresh"><RefreshCw size={16} /></button>
+            <button className="btn-icon" onClick={clearSession} title="Sign out"><LogOut size={16} /></button>
+          </div>
         </div>
 
         {/* ── DASHBOARD ── */}
@@ -142,7 +377,7 @@ export default function App() {
             <div className="dashboard-grid">
               <div className="glass-panel chart-card">
                 <h2 className="card-title">Top Policy Violations</h2>
-                {stats.topPolicyHits?.length > 0 ? (
+                {(stats.topPolicyHits?.length ?? 0) > 0 ? (
                   <ResponsiveContainer width="100%" height={220}>
                     <BarChart data={stats.topPolicyHits} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -202,8 +437,16 @@ export default function App() {
           <div className="glass-panel fade-in">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2 className="card-title" style={{ margin: 0 }}>Tamper-Proof Audit Trail</h2>
-              <button className="btn-secondary"><Download size={14} style={{ display: 'inline', marginRight: '6px' }} />Export Logs</button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button className="btn-secondary" onClick={verifyAudit}>Verify Chain</button>
+                <button className="btn-secondary"><Download size={14} style={{ display: 'inline', marginRight: '6px' }} />Export Logs</button>
+              </div>
             </div>
+            {integrity && (
+              <div className={`integrity-box ${integrity.valid ? 'integrity-ok' : 'integrity-fail'}`}>
+                Audit chain {integrity.valid ? 'valid' : 'failed'} · checked {integrity.checked} events · head {integrity.headHash || 'none'}
+              </div>
+            )}
             <div style={{ overflowX: 'auto' }}>
               <table className="logs-table">
                 <thead><tr><th>Time</th><th>User / Dept</th><th>Event</th><th>Risk</th><th>Decision</th><th>Policy Hit</th><th>Evidence</th></tr></thead>
@@ -236,7 +479,7 @@ export default function App() {
               {policies.map(policy => (
                 <div key={policy.id} className="glass-panel" style={{ padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <label className="toggle-switch">
-                    <input type="checkbox" checked={policy.enabled} onChange={() => togglePolicy(policy)} />
+                    <input type="checkbox" checked={policy.enabled} onChange={() => togglePolicy(policy)} disabled={!can('policy:write')} />
                     <span className="toggle-slider"></span>
                   </label>
                   <div style={{ flex: 1 }}>
@@ -248,7 +491,7 @@ export default function App() {
                     className="action-select"
                     value={policy.action}
                     onChange={e => changeAction(policy, e.target.value)}
-                    disabled={!policy.enabled}
+                    disabled={!policy.enabled || !can('policy:write')}
                   >
                     {['ALLOW', 'WARN', 'MASK', 'BLOCK', 'HUMAN_REVIEW', 'QUARANTINE'].map(a => (
                       <option key={a} value={a}>{a}</option>
@@ -293,7 +536,9 @@ export default function App() {
                 {item.status === 'PENDING' ? (
                   selectedReview === item.id ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      <textarea
+                      {can('review:write') ? (
+                      <>
+                        <textarea
                         className="review-note"
                         placeholder="Add reviewer note (optional)..."
                         value={reviewNote}
@@ -304,6 +549,8 @@ export default function App() {
                         <button className="btn btn-reject" onClick={() => handleReject(item.id)}><X size={14} /> Reject</button>
                         <button className="btn-secondary" onClick={() => setSelectedReview(null)}>Cancel</button>
                       </div>
+                      </>
+                      ) : <div className="auth-warning">Read-only role. You cannot approve or reject review items.</div>}
                     </div>
                   ) : (
                     <button className="btn-secondary" style={{ fontSize: '0.85rem' }} onClick={() => setSelectedReview(item.id)}>
@@ -321,51 +568,45 @@ export default function App() {
           </div>
         )}
 
-        {/* ── EXTENSION ── */}
-        {tab === 'extension' && (
-          <div className="fade-in">
-            <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
-              <h2 className="card-title"><PuzzleIcon size={18} style={{ display: 'inline', marginRight: '8px', color: '#3b82f6' }} />TrustGuard Browser Extension</h2>
-              <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: 1.6 }}>The TrustGuard Chrome/Edge extension monitors all ChatGPT usage on company-managed devices. It scans prompts, pasted content, and file uploads before they reach ChatGPT.</p>
-              <div className="extension-stats">
-                {[
-                  { label: 'Protected Domains', value: 'chatgpt.com, chat.openai.com' },
-                  { label: 'Manifest Version', value: 'Manifest V3' },
-                  { label: 'Extension Version', value: '1.0.0' },
-                  { label: 'Scan Mode', value: 'Active (Block + Warn + Review)' },
-                ].map(s => (
-                  <div key={s.label} className="extension-stat">
-                    <span className="stat-label">{s.label}</span>
-                    <span className="stat-value">{s.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="glass-panel">
-              <h2 className="card-title">How to Load the Extension (Development)</h2>
-              <ol className="install-steps">
-                <li><strong>Open Chrome/Edge</strong> and navigate to <code>chrome://extensions</code></li>
-                <li>Enable <strong>Developer Mode</strong> (toggle in the top right)</li>
-                <li>Click <strong>"Load unpacked"</strong> and select the <code>/extension</code> folder from the project</li>
-                <li>The TrustGuard extension will appear. Pin it to your toolbar.</li>
-                <li>Open <strong>chatgpt.com</strong> and look for the <strong>"Protected by TrustGuard"</strong> badge in the bottom-right corner.</li>
-                <li>Type a risky prompt like <code>Here is my key: sk-1234567890abcdef</code> and click Send. TrustGuard will block it.</li>
-              </ol>
-
-              <div className="warning-box" style={{ marginTop: '1.5rem' }}>
-                <AlertTriangle size={16} color="#f59e0b" style={{ flexShrink: 0 }} />
-                <div>
-                  <strong style={{ color: '#f59e0b' }}>Enterprise Deployment Note:</strong>
-                  <p style={{ margin: '0.25rem 0 0', color: '#94a3b8', fontSize: '0.85rem' }}>
-                    For production, the extension should be force-installed via Chrome/Edge group policy (GPO). This prevents employees from disabling it. See <code>docs/enterprise-extension-deployment.md</code> for full deployment guide.
-                  </p>
-                </div>
-              </div>
+        {/* API CLIENTS */}
+        {tab === 'devices' && (
+          <div className="glass-panel fade-in">
+            <h2 className="card-title">API Client Inventory</h2>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="logs-table">
+                <thead><tr><th>Tenant</th><th>Client</th><th>User</th><th>Status</th><th>Version</th><th>Last Seen</th><th>Action</th></tr></thead>
+                <tbody>
+                  {devices.map(device => (
+                    <tr key={`${device.tenantId}:${device.deviceId}`}>
+                      <td>{device.tenantId}</td>
+                      <td style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{device.deviceId}</td>
+                      <td>{device.userId}</td>
+                      <td><span className={`badge ${device.status === 'ACTIVE' ? 'allow' : 'deny'}`}>{device.status}</span></td>
+                      <td>{device.clientVersion || '-'}</td>
+                      <td style={{ color: '#64748b', fontSize: '0.8rem' }}>{new Date(device.lastSeen).toLocaleString()}</td>
+                      <td>
+                        <select
+                          className="action-select"
+                          value={device.status}
+                          disabled={!can('device:write')}
+                          onChange={e => updateDeviceStatus(device, e.target.value as Device['status'])}
+                        >
+                          {['ACTIVE', 'SUSPENDED', 'REVOKED'].map(status => <option key={status} value={status}>{status}</option>)}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
+
       </main>
     </div>
   );
+}
+
+export default function App() {
+  return window.location.pathname.startsWith('/admin') ? <AdminPortal /> : <LandingPage />;
 }

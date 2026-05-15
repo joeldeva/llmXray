@@ -5,8 +5,8 @@
 
 const SEVERITY_WEIGHTS = {
   critical: 40,
-  high: 25,
-  medium: 10,
+  high: 70,
+  medium: 40,
   low: 5,
 };
 
@@ -17,6 +17,15 @@ function calculateRiskScore(allFindings) {
   for (const finding of allFindings) {
     score += SEVERITY_WEIGHTS[finding.severity] || 5;
   }
+
+  if (allFindings.some(finding => finding.severity === 'critical')) {
+    score = Math.max(score, 90);
+  } else if (allFindings.some(finding => finding.severity === 'high')) {
+    score = Math.max(score, 70);
+  } else if (allFindings.some(finding => finding.severity === 'medium')) {
+    score = Math.max(score, 40);
+  }
+
   return Math.min(100, score);
 }
 

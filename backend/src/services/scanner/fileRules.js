@@ -1,6 +1,6 @@
 /**
  * fileRules.js
- * Complete rule database for TrustGuard file scanning.
+ * Complete rule database for LlmXray file scanning.
  * Covers all 18 threat categories with precise patterns and policies.
  */
 

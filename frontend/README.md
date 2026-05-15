@@ -1,73 +1,69 @@
-# React + TypeScript + Vite
+# LlmXray Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the public web app for LlmXray, an AI API Gateway and DLP scanner for enterprise AI workflows.
 
-Currently, two official plugins are available:
+The landing page and dashboard are written for teams routing prompts and files through any AI product, model provider, internal assistant, or automation pipeline.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Live App
 
-## React Compiler
+- Landing page: https://frontend-azure-beta-85.vercel.app
+- Admin dashboard: https://frontend-azure-beta-85.vercel.app/admin
+- Backend API: https://backend-gamma-livid-54.vercel.app
+- Repository: https://github.com/joeldeva/llmXray.git
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## What It Contains
 
-## Expanding the ESLint configuration
+- Interactive 3D landing page for the LlmXray gateway.
+- API-first product messaging for prompt and file scanning.
+- Admin dashboard views for audit events, policy review, analytics, and settings.
+- Client wiring for the backend API under `/api`.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Tech Stack
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- React
+- TypeScript
+- Vite
+- Three.js
+- Recharts
+- Lucide React
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Local Setup
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The development server defaults to:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+http://localhost:5173
 ```
+
+## Environment
+
+Use this when pointing the frontend at the hosted backend:
+
+```text
+VITE_API_BASE_URL=https://backend-gamma-livid-54.vercel.app/api
+```
+
+For local backend development:
+
+```text
+VITE_API_BASE_URL=http://localhost:3001/api
+```
+
+Only public browser-safe values should use the `VITE_` prefix. Do not put API keys, database URLs, or master credentials in frontend environment variables.
+
+## Build
+
+```bash
+npm run build
+```
+
+The production build outputs to `dist/`.
+
+## Deployment
+
+This app is deployed on Vercel as the LlmXray frontend. The backend remains a separate Vercel deployment and is reached through `VITE_API_BASE_URL`.

@@ -1,5 +1,5 @@
 /**
- * scanFile.js  — TrustGuard File Scanner (Production Grade)
+ * scanFile.js  — LlmXray File Scanner (Production Grade)
  *
  * Analyzes file metadata + content for 18 threat categories.
  * Returns a structured decision WITH a list of exactly what was found
@@ -55,7 +55,7 @@ function scanFile(fileObj) {
     }
   }
 
-  // ── STEP 4: Extension-based classification ───────────────────────────────
+  // STEP 4: filename suffix classification
   if (SOURCE_CODE_EXTENSIONS.includes(ext)) {
     findings.push({ category: 'SOURCE_CODE_DETECTED', label: `Source code file (${ext})`, value: ext });
   }
@@ -131,7 +131,7 @@ function scanFile(fileObj) {
 
 /**
  * Redact the middle of a matched value for safe display.
- * E.g. "sk-1234567890abcdef" → "sk-1234...cdef"
+ * E.g. "secret-value" -> "secr...alue"
  */
 function redactSample(value) {
   if (!value || value.length <= 12) return value;
@@ -148,12 +148,12 @@ function buildMessage(action, findings, filename) {
   }).join('\n');
 
   if (action === 'BLOCK') {
-    return `TrustGuard has blocked your file "${filename || 'uploaded file'}". The following threats were detected:\n\n${found}`;
+    return `LlmXray has blocked your file "${filename || 'uploaded file'}". The following threats were detected:\n\n${found}`;
   }
   if (action === 'WARN') {
-    return `TrustGuard detected potentially sensitive content in "${filename || 'uploaded file'}":\n\n${found}\n\nPlease review before continuing.`;
+    return `LlmXray detected potentially sensitive content in "${filename || 'uploaded file'}":\n\n${found}\n\nPlease review before continuing.`;
   }
-  return `File "${filename}" passed TrustGuard security scan.`;
+  return `File "${filename}" passed LlmXray security scan.`;
 }
 
 /**

@@ -1,17 +1,34 @@
 const express = require('express');
 const router = express.Router();
-const { loadLogs, getStats } = require('../services/audit/auditLogger');
+const { queryAuditLogs, getStats, verifyAuditChain } = require('../services/audit/auditLogger');
 
 // GET /api/audit/logs
-router.get('/logs', (req, res) => {
-  const logs = loadLogs();
-  res.json(logs);
+router.get('/logs', async (req, res, next) => {
+  try {
+    res.json(await queryAuditLogs(req.query));
+  } catch (error) {
+    next(error);
+  }
 });
 
 // GET /api/audit/stats
-router.get('/stats', (req, res) => {
-  const stats = getStats();
-  res.json(stats);
+router.get('/stats', async (req, res, next) => {
+  try {
+    const stats = await getStats();
+    res.json(stats);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/audit/verify
+router.get('/verify', async (req, res, next) => {
+  try {
+    const result = await verifyAuditChain();
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = router;

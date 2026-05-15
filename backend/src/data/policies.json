@@ -8,7 +8,7 @@
     ],
     "matchRuleIds": [],
     "minSeverity": "high",
-    "action": "ALLOW",
+    "action": "BLOCK",
     "description": "Block any prompt containing API keys, tokens, passwords, or secrets."
   },
   {

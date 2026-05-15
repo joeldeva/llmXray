@@ -1,32 +1,59 @@
-const fs = require('fs');
-const path = require('path');
 const { DEFAULT_POLICIES } = require('./defaultPolicies');
+const { readJson, writeJson } = require('../storage/jsonStore');
+const { getPool, hasPostgres, query } = require('../storage/postgres');
 
-const POLICIES_FILE = path.join(__dirname, '../../data/policies.json');
+const POLICIES_FILE = 'policies.json';
 
-function loadPolicies() {
-  if (!fs.existsSync(POLICIES_FILE)) {
-    savePolicies(DEFAULT_POLICIES);
+async function loadPolicies() {
+  if (hasPostgres()) {
+    const result = await query('SELECT policy FROM policies ORDER BY id ASC');
+    if (result.rows.length === 0) {
+      await savePolicies(DEFAULT_POLICIES);
+      return DEFAULT_POLICIES;
+    }
+    return result.rows.map(row => row.policy);
+  }
+
+  const policies = readJson(POLICIES_FILE, null);
+  if (!policies) {
+    await savePolicies(DEFAULT_POLICIES);
     return DEFAULT_POLICIES;
   }
-  try {
-    return JSON.parse(fs.readFileSync(POLICIES_FILE, 'utf-8'));
-  } catch {
-    return DEFAULT_POLICIES;
-  }
+  return policies;
 }
 
-function savePolicies(policies) {
-  fs.mkdirSync(path.dirname(POLICIES_FILE), { recursive: true });
-  fs.writeFileSync(POLICIES_FILE, JSON.stringify(policies, null, 2));
+async function savePolicies(policies) {
+  if (hasPostgres()) {
+    const client = await getPool().connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM policies');
+      for (const policy of policies) {
+        await client.query(
+          `INSERT INTO policies (id, policy, enabled, updated_at)
+           VALUES ($1, $2::jsonb, $3, NOW())`,
+          [policy.id, JSON.stringify(policy), policy.enabled !== false]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    return;
+  }
+
+  writeJson(POLICIES_FILE, policies);
 }
 
 /**
  * Evaluate scanner findings against all active policies.
  * Returns the highest-priority action.
  */
-function evaluatePolicies(findings) {
-  const policies = loadPolicies().filter(p => p.enabled);
+async function evaluatePolicies(findings) {
+  const policies = (await loadPolicies()).filter(p => p.enabled);
 
   const ACTION_PRIORITY = ['QUARANTINE', 'BLOCK', 'HUMAN_REVIEW', 'MASK', 'WARN', 'ALLOW'];
 

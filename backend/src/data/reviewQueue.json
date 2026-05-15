@@ -1,12 +1,60 @@
 [
   {
+    "id": "rev_c63621583632",
+    "timestamp": "2026-05-13T08:04:05.371Z",
+    "status": "PENDING",
+    "reviewerNote": null,
+    "reviewedAt": null,
+    "eventId": "evt_d3990ac30bbb",
+    "site": "ai-app.example",
+    "userId": "employee@enterprise.com",
+    "department": "General",
+    "eventType": "FILE_SCAN",
+    "riskScore": 45,
+    "decision": "HUMAN_REVIEW",
+    "policyHits": [
+      "POL_PII_WARN",
+      "POL_FINANCIAL_REVIEW"
+    ],
+    "evidence": "Detected 385 email address(es) | Detected PAN card pattern | Detected: UPI ID",
+    "fileMeta": {
+      "name": "department_business_records.csv",
+      "type": "text/csv",
+      "size": 240557
+    }
+  },
+  {
+    "id": "rev_c0b8c9c89a37",
+    "timestamp": "2026-05-13T07:34:45.864Z",
+    "status": "APPROVED",
+    "reviewerNote": null,
+    "reviewedAt": "2026-05-13T07:39:08.270Z",
+    "eventId": "evt_9633c5100e03",
+    "site": "ai-app.example",
+    "userId": "employee@enterprise.com",
+    "department": "General",
+    "eventType": "FILE_SCAN",
+    "riskScore": 45,
+    "decision": "HUMAN_REVIEW",
+    "policyHits": [
+      "POL_PII_WARN",
+      "POL_FINANCIAL_REVIEW"
+    ],
+    "evidence": "Detected 385 email address(es) | Detected PAN card pattern | Detected: UPI ID",
+    "fileMeta": {
+      "name": "department_business_records.csv",
+      "type": "text/csv",
+      "size": 240557
+    }
+  },
+  {
     "id": "rev_1d62afea600b",
     "timestamp": "2026-05-13T07:03:13.022Z",
     "status": "APPROVED",
     "reviewerNote": null,
     "reviewedAt": "2026-05-13T07:12:29.999Z",
     "eventId": "evt_a8c6d1ce912f",
-    "site": "chatgpt.com",
+    "site": "ai-app.example",
     "userId": "employee@enterprise.com",
     "department": "General",
     "eventType": "FILE_SCAN",
@@ -30,7 +78,7 @@
     "reviewerNote": null,
     "reviewedAt": "2026-05-13T07:12:31.594Z",
     "eventId": "evt_9debea7ef6e4",
-    "site": "chatgpt.com",
+    "site": "ai-app.example",
     "userId": "employee@enterprise.com",
     "department": "General",
     "eventType": "FILE_SCAN",
@@ -51,7 +99,7 @@
     "id": "rev_seed001",
     "timestamp": "2026-05-12T09:15:00.000Z",
     "status": "APPROVED",
-    "site": "chatgpt.com",
+    "site": "ai-app.example",
     "userId": "bob@enterprise.com",
     "department": "Finance",
     "eventType": "PROMPT_SCAN",
@@ -69,7 +117,7 @@
     "id": "rev_seed002",
     "timestamp": "2026-05-12T10:45:00.000Z",
     "status": "REJECTED",
-    "site": "chatgpt.com",
+    "site": "ai-app.example",
     "userId": "dave@enterprise.com",
     "department": "Sales",
     "eventType": "FILE_SCAN",

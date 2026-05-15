@@ -1,41 +1,83 @@
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
+const { readJson, writeJson } = require('../storage/jsonStore');
+const { hasPostgres, query } = require('../storage/postgres');
 
-const QUEUE_FILE = path.join(__dirname, '../../data/reviewQueue.json');
+const QUEUE_FILE = 'reviewQueue.json';
 
-function loadQueue() {
-  if (!fs.existsSync(QUEUE_FILE)) return [];
-  try {
-    return JSON.parse(fs.readFileSync(QUEUE_FILE, 'utf-8'));
-  } catch {
-    return [];
+async function loadQueue() {
+  if (hasPostgres()) {
+    const result = await query(
+      `SELECT id, timestamp, status, reviewer_note, reviewed_at, event
+         FROM review_queue
+        ORDER BY timestamp DESC
+        LIMIT 1000`
+    );
+    return result.rows.map(row => ({
+      id: row.id,
+      timestamp: row.timestamp.toISOString(),
+      status: row.status,
+      reviewerNote: row.reviewer_note,
+      reviewedAt: row.reviewed_at ? row.reviewed_at.toISOString() : null,
+      ...row.event,
+    }));
   }
+
+  return readJson(QUEUE_FILE, []);
 }
 
 function saveQueue(queue) {
-  fs.mkdirSync(path.dirname(QUEUE_FILE), { recursive: true });
-  fs.writeFileSync(QUEUE_FILE, JSON.stringify(queue, null, 2));
+  writeJson(QUEUE_FILE, queue);
 }
 
-function addToQueue(event) {
-  const queue = loadQueue();
+async function addToQueue(event) {
   const id = 'rev_' + crypto.randomBytes(6).toString('hex');
+  const timestamp = new Date().toISOString();
   const entry = {
     id,
-    timestamp: new Date().toISOString(),
+    timestamp,
     status: 'PENDING',
     reviewerNote: null,
     reviewedAt: null,
     ...event,
   };
+
+  if (hasPostgres()) {
+    await query(
+      `INSERT INTO review_queue (id, timestamp, status, reviewer_note, reviewed_at, event)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
+      [id, timestamp, entry.status, entry.reviewerNote, entry.reviewedAt, JSON.stringify(event)]
+    );
+    return id;
+  }
+
+  const queue = readJson(QUEUE_FILE, []);
   queue.unshift(entry);
   saveQueue(queue);
   return id;
 }
 
-function updateQueueItem(id, status, reviewerNote) {
-  const queue = loadQueue();
+async function updateQueueItem(id, status, reviewerNote) {
+  if (hasPostgres()) {
+    const result = await query(
+      `UPDATE review_queue
+          SET status = $2, reviewer_note = $3, reviewed_at = NOW()
+        WHERE id = $1
+        RETURNING id, timestamp, status, reviewer_note, reviewed_at, event`,
+      [id, status, reviewerNote || null]
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      timestamp: row.timestamp.toISOString(),
+      status: row.status,
+      reviewerNote: row.reviewer_note,
+      reviewedAt: row.reviewed_at ? row.reviewed_at.toISOString() : null,
+      ...row.event,
+    };
+  }
+
+  const queue = readJson(QUEUE_FILE, []);
   const idx = queue.findIndex(item => item.id === id);
   if (idx === -1) return null;
   queue[idx].status = status;

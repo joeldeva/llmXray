@@ -8,7 +8,7 @@ const PATTERNS = [
   { id: 'BANK_STATEMENT', regex: /bank\s+statement/i, severity: 'high', label: 'Bank Statement Reference' },
   { id: 'FINANCIAL_FORECAST', regex: /financial\s+forecast/i, severity: 'high', label: 'Financial Forecast' },
   { id: 'REVENUE_DATA', regex: /quarterly?\s+(revenue|earnings|profit|loss)/i, severity: 'high', label: 'Revenue Data' },
-  { id: 'UPI_ID', regex: /[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}/, severity: 'medium', label: 'UPI ID' },
+  { id: 'UPI_ID', regex: /\b(upi|vpa|pay\s+to)\s*[:=]?\s*[a-zA-Z0-9.\-_]{2,256}@(upi|ybl|ibl|axl|oksbi|okaxis|okhdfcbank|okicici|paytm)\b/i, severity: 'medium', label: 'UPI ID' },
 ];
 
 function detectFinancial(text) {
