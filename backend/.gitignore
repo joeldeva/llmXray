@@ -1,1 +1,22 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Data storage (local dev only - use Postgres in production)
+src/data/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build
+dist/
+build/
+
+# Vercel
+.vercel/
 .env*.local

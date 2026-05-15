@@ -4,6 +4,10 @@ const { createApiKey, listApiKeys, revokeApiKey } = require('../services/keys/ap
 const router = express.Router();
 
 router.post('/generate', async (req, res, next) => {
+  if (!req.apiKey?.isBootstrap) {
+    return res.status(403).json({ error: 'only the master key can generate API keys' });
+  }
+
   try {
     const key = await createApiKey({
       email: req.body?.email,

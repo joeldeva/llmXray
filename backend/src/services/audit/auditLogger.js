@@ -15,28 +15,7 @@ async function loadLogs() {
         ORDER BY timestamp DESC
         LIMIT 1000`
     );
-    return result.rows.map(row => ({
-      id: row.id,
-      timestamp: row.timestamp.toISOString(),
-      tenantId: row.tenant_id,
-      deviceId: row.device_id,
-      site: row.site,
-      userId: row.user_id,
-      department: row.department,
-      eventType: row.event_type,
-      riskScore: row.risk_score,
-      riskLevel: row.risk_level,
-      decision: row.decision,
-      policyHits: row.policy_hits || [],
-      evidence: row.evidence,
-      url: row.url,
-      status: row.status,
-      fileMeta: row.file_meta,
-      findings: row.findings || [],
-      rawStored: row.raw_stored,
-      prevHash: row.prev_hash,
-      entryHash: row.entry_hash,
-    }));
+    return result.rows.map(mapAuditRow);
   }
 
   return readJson(LOGS_FILE, []);
@@ -105,6 +84,81 @@ async function logEvent(event) {
 }
 
 async function getStats() {
+  if (hasPostgres()) {
+    const aggregateResult = await query(
+      `SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE decision = 'BLOCK')::int AS blocked,
+        COUNT(*) FILTER (WHERE decision = 'WARN')::int AS warned,
+        COUNT(*) FILTER (WHERE decision = 'ALLOW')::int AS allowed,
+        COUNT(*) FILTER (WHERE decision = 'HUMAN_REVIEW')::int AS human_review,
+        COUNT(*) FILTER (WHERE decision = 'QUARANTINE')::int AS quarantined,
+        COUNT(*) FILTER (WHERE risk_level = 'CRITICAL')::int AS critical,
+        COUNT(*) FILTER (WHERE event_type = 'FILE_SCAN')::int AS file_scans
+       FROM audit_logs`
+    );
+    const row = aggregateResult.rows[0] || {};
+    const topPolicyHitsResult = await query(
+      `SELECT hits.name AS name, COUNT(*)::int AS value
+         FROM audit_logs
+         CROSS JOIN LATERAL jsonb_array_elements_text(policy_hits) AS hits(name)
+        GROUP BY hits.name
+        ORDER BY value DESC
+        LIMIT 5`
+    );
+    const riskTrendResult = await query(
+      `WITH days AS (
+         SELECT generate_series(
+           date_trunc('day', NOW()) - INTERVAL '6 days',
+           date_trunc('day', NOW()),
+           INTERVAL '1 day'
+         ) AS day
+       )
+       SELECT
+         to_char(days.day, 'YYYY-MM-DD') AS date,
+         COUNT(a.id)::int AS total,
+         COUNT(a.id) FILTER (WHERE a.risk_level = 'CRITICAL')::int AS critical,
+         COUNT(a.id) FILTER (WHERE a.decision = 'BLOCK')::int AS blocked
+       FROM days
+       LEFT JOIN audit_logs a
+         ON a.timestamp >= days.day
+        AND a.timestamp < days.day + INTERVAL '1 day'
+       GROUP BY days.day
+       ORDER BY days.day`
+    );
+
+    const totalScans = Number(row.total || 0);
+    const totalBlocked = Number(row.blocked || 0);
+    const totalWarned = Number(row.warned || 0);
+    const totalAllowed = Number(row.allowed || 0);
+    const humanReview = Number(row.human_review || 0);
+    const quarantined = Number(row.quarantined || 0);
+    const criticalEvents = Number(row.critical || 0);
+    const fileScans = Number(row.file_scans || 0);
+
+    return {
+      totalScans,
+      totalBlocked,
+      totalWarned,
+      totalAllowed,
+      criticalEvents,
+      topPolicyHits: topPolicyHitsResult.rows.map(hit => ({ name: hit.name, value: Number(hit.value || 0) })),
+      riskTrend: riskTrendResult.rows.map(trend => ({
+        date: trend.date,
+        total: Number(trend.total || 0),
+        critical: Number(trend.critical || 0),
+        blocked: Number(trend.blocked || 0),
+      })),
+      total: totalScans,
+      blocked: totalBlocked,
+      warned: totalWarned,
+      humanReview,
+      quarantined,
+      critical: criticalEvents,
+      fileScans,
+    };
+  }
+
   const logs = await loadLogs();
   const totalScans = logs.length;
   const totalBlocked = logs.filter(l => l.decision === 'BLOCK').length;
@@ -149,6 +203,50 @@ async function getStats() {
 async function queryAuditLogs({ page = 1, limit = 20, decision, userId, from, to } = {}) {
   const parsedPage = Math.max(1, Number(page) || 1);
   const parsedLimit = Math.min(100, Math.max(1, Number(limit) || 20));
+  const offset = (parsedPage - 1) * parsedLimit;
+
+  if (hasPostgres()) {
+    const where = [];
+    const params = [];
+    if (decision) where.push(`decision = $${params.push(decision)}`);
+    if (userId) where.push(`user_id = $${params.push(userId)}`);
+    if (from) {
+      const fromDate = new Date(from);
+      if (!Number.isNaN(fromDate.getTime())) where.push(`timestamp >= $${params.push(fromDate)}`);
+    }
+    if (to) {
+      const toDate = new Date(to);
+      if (!Number.isNaN(toDate.getTime())) where.push(`timestamp <= $${params.push(toDate)}`);
+    }
+
+    const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const countResult = await query(`SELECT COUNT(*)::int AS count FROM audit_logs ${whereClause}`, params);
+    const total = Number(countResult.rows[0]?.count || 0);
+
+    params.push(parsedLimit, offset);
+    const dataResult = await query(
+      `SELECT id, timestamp, tenant_id, device_id, site, user_id, department, event_type, risk_score, risk_level,
+              decision, policy_hits, evidence, url, status, file_meta, findings, raw_stored,
+              prev_hash, entry_hash
+         FROM audit_logs
+         ${whereClause}
+        ORDER BY timestamp DESC
+        LIMIT $${params.length - 1}
+       OFFSET $${params.length}`,
+      params
+    );
+
+    return {
+      events: dataResult.rows.map(row => maskAuditEvent(mapAuditRow(row))),
+      pagination: {
+        page: parsedPage,
+        limit: parsedLimit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / parsedLimit)),
+      },
+    };
+  }
+
   const fromTime = from ? new Date(from).getTime() : null;
   const toTime = to ? new Date(to).getTime() : null;
   let logs = await loadLogs();
@@ -163,8 +261,7 @@ async function queryAuditLogs({ page = 1, limit = 20, decision, userId, from, to
   });
 
   const total = logs.length;
-  const start = (parsedPage - 1) * parsedLimit;
-  const events = logs.slice(start, start + parsedLimit).map(maskAuditEvent);
+  const events = logs.slice(offset, offset + parsedLimit).map(maskAuditEvent);
   return {
     events,
     pagination: {
@@ -173,6 +270,31 @@ async function queryAuditLogs({ page = 1, limit = 20, decision, userId, from, to
       total,
       totalPages: Math.max(1, Math.ceil(total / parsedLimit)),
     },
+  };
+}
+
+function mapAuditRow(row) {
+  return {
+    id: row.id,
+    timestamp: row.timestamp?.toISOString?.() || row.timestamp,
+    tenantId: row.tenant_id,
+    deviceId: row.device_id,
+    site: row.site,
+    userId: row.user_id,
+    department: row.department,
+    eventType: row.event_type,
+    riskScore: row.risk_score,
+    riskLevel: row.risk_level,
+    decision: row.decision,
+    policyHits: row.policy_hits || [],
+    evidence: row.evidence,
+    url: row.url,
+    status: row.status,
+    fileMeta: row.file_meta,
+    findings: row.findings || [],
+    rawStored: row.raw_stored,
+    prevHash: row.prev_hash,
+    entryHash: row.entry_hash,
   };
 }
 

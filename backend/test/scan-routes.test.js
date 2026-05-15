@@ -135,7 +135,7 @@ test('POST /api/scan/file scans multipart text uploads', async () => {
     assert.equal(body.decision, 'BLOCK');
     assert.equal(body.riskLevel, 'CRITICAL');
     assert.equal(body.fileMeta.name, 'notes.txt');
-    assert.equal(body.findings[0].label, 'OpenAI API Key');
+    assert.equal(body.findings[0].label, 'OpenAI API key (sk-)');
   } finally {
     await new Promise(resolve => server.close(resolve));
   }

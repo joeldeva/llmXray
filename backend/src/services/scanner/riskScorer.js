@@ -4,9 +4,9 @@
  */
 
 const SEVERITY_WEIGHTS = {
-  critical: 40,
-  high: 70,
-  medium: 40,
+  critical: 50,
+  high: 30,
+  medium: 15,
   low: 5,
 };
 

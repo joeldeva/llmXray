@@ -71,13 +71,12 @@ app.use((err, req, res, next) => {
 function buildCorsOptions(req, callback) {
   const configuredOrigins = parseAllowedOrigins();
   const origin = req.get('origin');
-  const hasApiKey = Boolean(req.get('x-api-key') || req.get('x-llmxray-api-token'));
   let allowedOrigin = '*';
 
   if (configuredOrigins.length > 0 && !configuredOrigins.includes('*')) {
     if (!origin) {
       allowedOrigin = true;
-    } else if (configuredOrigins.includes(origin) || hasApiKey) {
+    } else if (configuredOrigins.includes(origin)) {
       allowedOrigin = origin;
     } else {
       allowedOrigin = false;

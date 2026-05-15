@@ -39,7 +39,7 @@ test('CORS defaults to open API testing mode', async () => {
   }
 });
 
-test('API-key preflight is allowed when origins are restricted', async () => {
+test('API-key preflight does not bypass restricted origins', async () => {
   const originalOrigins = process.env.ALLOWED_ORIGINS;
   process.env.ALLOWED_ORIGINS = 'https://trusted.example';
   const server = await listen();
@@ -54,8 +54,8 @@ test('API-key preflight is allowed when origins are restricted', async () => {
       },
     });
 
-    assert.equal(response.status, 204);
-    assert.equal(response.headers.get('access-control-allow-origin'), 'https://unlisted.example');
+    assert.equal(response.status, 401);
+    assert.equal(response.headers.get('access-control-allow-origin'), null);
   } finally {
     if (originalOrigins === undefined) delete process.env.ALLOWED_ORIGINS;
     else process.env.ALLOWED_ORIGINS = originalOrigins;

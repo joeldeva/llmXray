@@ -1,4 +1,5 @@
 const { readJson, writeJson } = require('../storage/jsonStore');
+const { hasPostgres, query } = require('../storage/postgres');
 
 const USAGE_FILE = 'usageEvents.json';
 const ONE_MINUTE_MS = 60 * 1000;
@@ -10,7 +11,56 @@ const PLAN_LIMITS = {
   enterprise: null,
 };
 
-function checkAndRecordUsage(apiKey) {
+async function checkAndRecordUsage(apiKey) {
+  if (hasPostgres()) {
+    return checkAndRecordUsagePostgres(apiKey);
+  }
+  return checkAndRecordUsageJson(apiKey);
+}
+
+async function checkAndRecordUsagePostgres(apiKey) {
+  const keyId = apiKey.id;
+  const minuteLimit = Number(process.env.LLMXRAY_RATE_LIMIT_PER_MINUTE || 100);
+  const dailyLimit = Number(process.env.LLMXRAY_RATE_LIMIT_PER_DAY || 10000);
+  const planLimit = getPlanLimit(apiKey.plan);
+  const counts = await getUsageForKey(keyId);
+
+  if (planLimit !== null && counts.month >= planLimit) {
+    return {
+      allowed: false,
+      statusCode: 402,
+      message: 'Scan limit reached. Upgrade to Team plan at llmxray.com/pricing',
+      usage: buildUsage(counts.minute, counts.day, dailyLimit),
+    };
+  }
+
+  if (counts.minute >= minuteLimit) {
+    return {
+      allowed: false,
+      statusCode: 429,
+      retryAfter: await getRetryAfterSeconds(keyId, '1 minute'),
+      usage: buildUsage(counts.minute, counts.day, dailyLimit),
+    };
+  }
+
+  if (counts.day >= dailyLimit) {
+    return {
+      allowed: false,
+      statusCode: 429,
+      retryAfter: await getRetryAfterSeconds(keyId, '1 day'),
+      usage: buildUsage(counts.minute, counts.day, dailyLimit),
+    };
+  }
+
+  await query('INSERT INTO usage_events (key_id) VALUES ($1)', [keyId]);
+
+  return {
+    allowed: true,
+    usage: buildUsage(counts.minute + 1, counts.day + 1, dailyLimit),
+  };
+}
+
+function checkAndRecordUsageJson(apiKey) {
   const now = Date.now();
   const keyId = apiKey.id;
   const allUsage = readJson(USAGE_FILE, {});
@@ -59,7 +109,24 @@ function checkAndRecordUsage(apiKey) {
   };
 }
 
-function getUsageForKey(keyId) {
+async function getUsageForKey(keyId) {
+  if (hasPostgres()) {
+    const result = await query(
+      `SELECT
+         COUNT(*) FILTER (WHERE ts > NOW() - INTERVAL '1 minute')::int AS minute,
+         COUNT(*) FILTER (WHERE ts > NOW() - INTERVAL '1 day')::int AS day,
+         COUNT(*) FILTER (WHERE ts >= date_trunc('month', NOW()))::int AS month
+       FROM usage_events
+       WHERE key_id = $1`,
+      [keyId]
+    );
+    return {
+      minute: Number(result.rows[0]?.minute || 0),
+      day: Number(result.rows[0]?.day || 0),
+      month: Number(result.rows[0]?.month || 0),
+    };
+  }
+
   const now = Date.now();
   const timestamps = (readJson(USAGE_FILE, {})[keyId] || []).filter(timestamp => now - timestamp < ONE_MONTH_MS);
   return {
@@ -69,12 +136,23 @@ function getUsageForKey(keyId) {
   };
 }
 
+async function getRetryAfterSeconds(keyId, interval) {
+  const result = await query(
+    `SELECT EXTRACT(EPOCH FROM ((MIN(ts) + $2::interval) - NOW())) AS retry_after
+       FROM usage_events
+      WHERE key_id = $1
+        AND ts > NOW() - $2::interval`,
+    [keyId, interval]
+  );
+  return Math.max(1, Math.ceil(Number(result.rows[0]?.retry_after || 1)));
+}
+
 function buildUsage(requestsThisMinute, requestsToday, dailyLimit) {
   return { requestsThisMinute, requestsToday, dailyLimit };
 }
 
-function buildUsageSummary(apiKey) {
-  const usage = getUsageForKey(apiKey.id);
+async function buildUsageSummary(apiKey) {
+  const usage = await getUsageForKey(apiKey.id);
   const plan = normalizePlan(apiKey.plan);
   const scansLimit = getPlanLimit(plan);
   const percentUsed = scansLimit === null ? 0 : Math.min(100, Math.round((usage.month / scansLimit) * 100));

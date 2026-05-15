@@ -25,10 +25,6 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs (timestamp DES
 CREATE INDEX IF NOT EXISTS idx_audit_logs_decision ON audit_logs (decision);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs (user_id);
 
-ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default';
-ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS device_id TEXT;
-ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS findings JSONB NOT NULL DEFAULT '[]'::jsonb;
-
 CREATE TABLE IF NOT EXISTS policies (
   id TEXT PRIMARY KEY,
   policy JSONB NOT NULL,
@@ -81,3 +77,18 @@ CREATE TABLE IF NOT EXISTS api_keys (
 
 CREATE INDEX IF NOT EXISTS idx_api_keys_org ON api_keys (org);
 CREATE INDEX IF NOT EXISTS idx_api_keys_status ON api_keys (status);
+
+CREATE TABLE IF NOT EXISTS usage_events (
+  id SERIAL PRIMARY KEY,
+  key_id TEXT NOT NULL,
+  ts TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_usage_events_key_ts ON usage_events (key_id, ts);
+
+CREATE TABLE IF NOT EXISTS rate_limit_buckets (
+  bucket_key TEXT NOT NULL,
+  ts TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rate_limit_key_ts ON rate_limit_buckets (bucket_key, ts);

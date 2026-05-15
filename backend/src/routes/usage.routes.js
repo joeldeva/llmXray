@@ -3,8 +3,12 @@ const { buildUsageSummary } = require('../services/usage/usageTracker');
 
 const router = express.Router();
 
-router.get('/', (req, res) => {
-  res.json(buildUsageSummary(req.apiKey));
+router.get('/', async (req, res, next) => {
+  try {
+    res.json(await buildUsageSummary(req.apiKey));
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = router;

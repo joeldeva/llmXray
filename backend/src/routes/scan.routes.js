@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const router = express.Router();
 const { scanPrompt } = require('../services/scanner/scanPrompt');
+const { scanFile } = require('../services/scanner/scanFile');
 const { logEvent } = require('../services/audit/auditLogger');
 const { maskEvidence } = require('../services/audit/maskEvidence');
 const { addToQueue } = require('../services/review/reviewQueue');
@@ -103,10 +104,10 @@ router.post('/file', handleUpload, async (req, res, next) => {
         eventType: 'FILE_SCAN',
         riskScore: 100,
         riskLevel: 'CRITICAL',
-      decision: 'BLOCK',
-      policyHits: ['POL_DANGEROUS_FILE_BLOCK'],
-      findings,
-      evidence: 'Dangerous file type',
+        decision: 'BLOCK',
+        policyHits: ['POL_DANGEROUS_FILE_BLOCK'],
+        findings,
+        evidence: 'Dangerous file type',
         fileMeta,
       });
 
@@ -124,11 +125,16 @@ router.post('/file', handleUpload, async (req, res, next) => {
     }
 
     const text = await extractFileText(file);
-    const scanResult = scanPrompt(text);
-    const { action, policyHits } = await deriveActionFromScan(scanResult);
-    const allFindings = getAllFindings(scanResult);
-    const findings = buildFindingsForResponse(allFindings);
-    const evidence = findings.map(finding => finding.label).join(' | ');
+    const fileResult = scanFile({
+      name: file.originalname,
+      type: file.mimetype,
+      size: file.size,
+      content: text,
+    });
+    const action = fileResult.action;
+    const policyHits = buildPolicyHitsFromFileResult(fileResult);
+    const findings = buildFindingsForResponse(fileResult.findings);
+    const evidence = fileResult.summary || findings.map(finding => finding.label).join(' | ');
 
     const eventId = await writeScanAuditEvent({
       req,
@@ -136,8 +142,8 @@ router.post('/file', handleUpload, async (req, res, next) => {
       department,
       site,
       eventType: 'FILE_SCAN',
-      riskScore: scanResult.riskScore,
-      riskLevel: scanResult.riskLevel,
+      riskScore: fileResult.riskScore,
+      riskLevel: fileResult.riskLevel,
       decision: action,
       policyHits,
       findings: maskFindingsForAudit(findings),
@@ -147,10 +153,10 @@ router.post('/file', handleUpload, async (req, res, next) => {
 
     res.json({
       decision: action,
-      riskScore: scanResult.riskScore,
-      riskLevel: scanResult.riskLevel,
+      riskScore: fileResult.riskScore,
+      riskLevel: fileResult.riskLevel,
       policyHits,
-      message: buildPromptMessage(action, findings),
+      message: fileResult.message || buildPromptMessage(action, findings),
       findings,
       fileMeta,
       eventId,
@@ -244,6 +250,34 @@ function maskFindingsForAudit(findings) {
     label: finding.label,
     value: finding.value ? maskFindingValue(finding.value) : null,
   }));
+}
+
+function buildPolicyHitsFromFileResult(fileResult) {
+  if (!fileResult || fileResult.action === 'ALLOW') return [];
+  const categories = new Set(fileResult.categories || (fileResult.findings || []).map(finding => finding.category));
+  const hits = [];
+
+  if ([...categories].some(category => [
+    'SECRET_DETECTED',
+    'API_KEY_DETECTED',
+    'PRIVATE_KEY_DETECTED',
+    'DATABASE_URL_DETECTED',
+    'TOKEN_DETECTED',
+    'AWS_DETECTED',
+    'PASSWORD_DETECTED',
+  ].includes(category))) {
+    hits.push('POL_SECRET_BLOCK');
+  }
+  if (categories.has('PROMPT_INJECTION_DETECTED')) hits.push('POL_INJECTION_BLOCK');
+  if (categories.has('PII_DETECTED')) {
+    hits.push(fileResult.action === 'BLOCK' ? 'POL_BULK_PII_BLOCK' : 'POL_PII_WARN');
+  }
+
+  if (!hits.length && fileResult.action !== 'ALLOW') {
+    hits.push(`POL_FILE_${fileResult.action}`);
+  }
+
+  return hits;
 }
 
 function maskFindingValue(value) {
